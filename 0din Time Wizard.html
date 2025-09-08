@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>0din Time Wizard • Convert • Poster • Countdown</title>
+<style>
+:root{
+  --bg:#0e1222; --panel:#151a2f; --ink:#0d1022; --fg:#eef1fa; --muted:#aab3d9;
+  --accent:#D95E29; --gold:#D4AF37; --line:#273052; --ok:#31c48d;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box} html,body{margin:0;background:linear-gradient(180deg,#0b0f1f,#0f1327);color:var(--fg);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
+h1,h2,h3{margin:0 0 6px}
+.small{font-size:12px;opacity:.8}
+.wrap{max-width:1100px;margin:0 auto;padding:18px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.card{background:linear-gradient(180deg,rgba(25,31,58,.92),rgba(21,26,47,.92));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+label{display:block;font-size:12px;margin-bottom:6px;opacity:.9}
+input,select,button,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--ink);color:var(--fg)}
+button{cursor:pointer;font-weight:800;border:none;background:linear-gradient(90deg,var(--accent),var(--gold));color:#0f0f16}
+button.ghost{background:#1c2242;color:var(--fg);border:1px solid var(--line)}
+.kbd{padding:2px 6px;border-radius:6px;background:#222b57;border:1px solid var(--line);font-size:12px}
+hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+.badge{padding:4px 10px;border-radius:10px;background:#1a2041;border:1px solid var(--line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.times{background:#121632;border:1px solid var(--line);border-radius:12px;padding:10px}
+.time-row{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:8px}
+.time-row:nth-child(even){background:#11152d}
+.notice{color:#cdd3ff}
+footer{opacity:.6;text-align:center;padding:12px 0}
+
+/* Overlay countdown view */
+body.overlay{background:transparent}
+.overlay-only{display:none}
+body.overlay .overlay-only{display:block}
+.hide-in-overlay{display:block}
+body.overlay .hide-in-overlay{display:none}
+.countwrap{position:fixed;inset:0;display:grid;place-items:center;background:rgba(10,13,30,.65);backdrop-filter: blur(6px)}
+.countbox{padding:24px 28px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,19,39,.9),rgba(15,19,39,.7));box-shadow:var(--shadow);text-align:center}
+.big{font-size:64px;font-weight:900;letter-spacing:1px;margin:6px 0 10px;color:var(--gold);text-shadow:0 3px 16px rgba(212,175,55,.28)}
+.subtitle{opacity:.9}
+.list{font-size:14px;margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap hide-in-overlay">
+  <h1>⚡ 0din Time Wizard — Convert • Poster • Countdown</h1>
+  <div class="small">Type your event once in your timezone. Get copy-paste times, a PNG poster, an .ics file, and a countdown overlay.</div>
+  <hr>
+</div>
+
+<div class="wrap hide-in-overlay">
+  <div class="row">
+    <div class="card" style="flex:2;min-width:320px">
+      <h3>Event</h3>
+      <div class="grid3" style="margin-top:6px">
+        <div>
+          <label>Title</label>
+          <input id="title" placeholder="JANK ONE Live EVENT"/>
+        </div>
+        <div>
+          <label>Date (UTC: +1) </label>
+          <input id="date" type="date"/>
+        </div>
+        <div>
+          <label>Time (HH:MM)</label>
+          <input id="time" type="time" value="21:00"/>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:8px">
+        <div>
+          <label>Your timezone</label>
+          <select id="baseTz"></select>
+        </div>
+        <div>
+          <label>Duration (min)</label>
+          <input id="dur" type="number" min="15" value="120"/>
+        </div>
+        <div>
+          <label>Accent color</label>
+          <input id="accent" type="color" value="#D95E29"/>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label>Show these timezones</label>
+        <div class="grid2" id="tzChecks"></div>
+      </div>
+      <div class="notice small" style="margin-top:6px">Tip: Default includes **Madeira, ET, PT, UTC**. Add CEST, UK, etc., if needed.</div>
+      <div class="row" style="margin-top:10px">
+        <button id="compute">Compute times</button>
+        <button class="ghost" id="copy">Copy announcement</button>
+        <button class="ghost" id="ics">Download .ics</button>
+        <button class="ghost" id="poster">Export PNG poster</button>
+        <button class="ghost" id="overlay">Open countdown overlay</button>
+      </div>
+    </div>
+
+    <div class="card" style="flex:1;min-width:280px">
+      <h3>Converted times</h3>
+      <div id="times" class="times"></div>
+      <hr>
+      <h3>Announcement text</h3>
+      <textarea id="ann" placeholder="Computed announcement..." rows="8"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay countdown view -->
+<div class="overlay-only">
+  <div class="countwrap">
+    <div class="countbox">
+      <div id="oTitle" class="subtitle">Event</div>
+      <div id="oBig" class="big">00:00:00</div>
+      <div id="oSub" class="subtitle">Starts at:</div>
+      <div id="oList" class="list"></div>
+    </div>
+  </div>
+</div>
+
+<canvas id="cnv" width="1200" height="630" style="display:none"></canvas>
+
+<footer class="hide-in-overlay">Created by 0din: Free · Safe • Offline & private</footer>
+
+<script>
+// ---------- Utilities ----------
+const $=id=>document.getElementById(id);
+const DEFAULTS = {
+  title:'JANK ONE Live Event',
+  zones:[
+    {id:'Atlantic/Madeira', label:'Madeira'},
+    {id:'UTC', label:'UTC'},
+    {id:'America/New_York', label:'ET'},
+    {id:'America/Los_Angeles', label:'PT'},
+    {id:'Europe/London', label:'UK'},
+    {id:'Europe/Berlin', label:'CEST'},
+    {id:'America/Chicago', label:'CT'},
+    {id:'America/Denver', label:'MT'},
+    {id:'Europe/Lisbon', label:'Lisbon'},
+    {id:'Asia/Kolkata', label:'IST'},
+    {id:'Asia/Tokyo', label:'JST'},
+    {id:'Australia/Sydney', label:'Sydney'}
+  ],
+  baseTz:'Atlantic/Madeira'
+};
+const KEY='odin_timewizard_v1';
+let S = JSON.parse(localStorage.getItem(KEY)||'{}');
+
+// Build TZ pickers
+function buildTzUI(){
+  // base TZ select
+  const tzs = DEFAULTS.zones.map(z=>z.id);
+  $('baseTz').innerHTML = tzs.map(z=>`<option value="${z}">${z}</option>`).join('');
+  $('baseTz').value = S.baseTz || DEFAULTS.baseTz;
+
+  // checkbox grid
+  const chk = DEFAULTS.zones.map(z=>{
+    const on = (S.sel? S.sel.includes(z.id) : ['Atlantic/Madeira','America/New_York','America/Los_Angeles','UTC'].includes(z.id));
+    return `<label><input type="checkbox" data-tz="${z.id}" ${on?'checked':''}/> ${z.label} <span class="small" style="opacity:.6">(${z.id})</span></label>`;
+  }).join('');
+  $('tzChecks').innerHTML = chk;
+}
+
+// Convert a base-zone local time to a UTC timestamp (robust, no libs)
+function zonedLocalToUTC(y,m,d,hh,mm, timeZone){
+  // iterative solve: find the UTC instant that formats to the desired local time in the given zone
+  let guess = Date.UTC(y,m-1,d,hh,mm); // start with naive UTC
+  const fmt = new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+  for(let i=0;i<3;i++){
+    const parts = Object.fromEntries(fmt.formatToParts(new Date(guess)).map(p=>[p.type,p.value]));
+    const py = parseInt(parts.year,10), pm = parseInt(parts.month,10), pd = parseInt(parts.day,10);
+    const ph = parseInt(parts.hour,10), pn = parseInt(parts.minute,10);
+    const desiredUTCFromLocal = Date.UTC(y,m-1,d,hh,mm);
+    const haveUTCFromLocal = Date.UTC(py,pm-1,pd,ph,pn);
+    const delta = desiredUTCFromLocal - haveUTCFromLocal; // minutes * 60000
+    guess += delta;
+    if (Math.abs(delta) < 60000) break;
+  }
+  return guess;
+}
+
+function formatInZone(utcMs, timeZone){
+  const fmt = new Intl.DateTimeFormat('en-GB',{
+    timeZone, year:'numeric', month:'short', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12:false, timeZoneName:'shortOffset' // e.g., GMT+1
+  });
+  return fmt.format(new Date(utcMs)); // "06 Sep 2025, 21:00 GMT+1"
+}
+function fmtHHMM(utcMs, timeZone){
+  return new Intl.DateTimeFormat('en-GB',{timeZone,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(utcMs));
+}
+function tzOffsetShort(utcMs, timeZone){
+  const p = new Intl.DateTimeFormat('en-GB',{timeZone,timeZoneName:'shortOffset'}).format(new Date(utcMs));
+  return p.split(' ').pop();
+}
+function ymd(date){ // YYYY-MM-DD
+  const y=date.getFullYear(), m=String(date.getMonth()+1).padStart(2,'0'), d=String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+// ---------- Main compute ----------
+function compute(){
+  const title = $('title').value.trim() || DEFAULTS.title;
+  const d = $('date').value;
+  const t = $('time').value || '21:00';
+  const dur = Math.max(15, parseInt($('dur').value||120,10));
+  const base = $('baseTz').value || DEFAULTS.baseTz;
+  const [Y,M,D] = d ? d.split('-').map(n=>parseInt(n,10)) : (()=>{
+    const now=new Date(); return [now.getFullYear(), now.getMonth()+1, now.getDate()];
+  })();
+  const [H,Min] = t.split(':').map(n=>parseInt(n,10));
+  // selected tzs
+  const sel = Array.from(document.querySelectorAll('#tzChecks input[type=checkbox]')).filter(x=>x.checked).map(x=>x.dataset.tz);
+  if(sel.length===0){ alert('Select at least one timezone.'); return; }
+
+  // convert base local to UTC instant
+  const utcMs = zonedLocalToUTC(Y,M,D,H,Min, base);
+  const endUtc = utcMs + dur*60000;
+
+  // Save
+  S = {title, date:d || ymd(new Date(utcMs)), time:t, dur, baseTz:base, sel, accent:$('accent').value};
+  localStorage.setItem(KEY, JSON.stringify(S));
+  document.documentElement.style.setProperty('--accent', S.accent||'#D95E29');
+
+  // Render times
+  const lines = sel.map(z=>{
+    const label = (DEFAULTS.zones.find(x=>x.id===z)?.label) || z;
+    const hhmm = fmtHHMM(utcMs, z);
+    const off = tzOffsetShort(utcMs, z);
+    return {z,label, text:`${label}: ${hhmm} (${off})`};
+  });
+
+  $('times').innerHTML = lines.map(x=>`<div class="time-row"><div>${x.label}</div><div><b>${x.text.split(': ').pop()}</b></div></div>`).join('');
+
+  // Build announcement
+  const baseStr = formatInZone(utcMs, base).replace(',', '');
+  const timesStr = lines.map(x=>`${x.label} ${fmtHHMM(utcMs,x.z)}`).join(' · ');
+  const ann = `**${title}**\nStart: ${baseStr}\n${timesStr}\nWatch: twitch.tv/s1r0din`;
+  $('ann').value = ann;
+
+  // Store last compute to use in overlay/poster/ics
+  S.last = {utcMs, endUtc, lines};
+  saveStateOnly();
+}
+function saveStateOnly(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+
+// ---------- Buttons ----------
+$('compute').onclick = compute;
+$('copy').onclick = ()=>{ if(!$('ann').value) compute(); navigator.clipboard.writeText($('ann').value).then(()=>alert('Announcement copied')); };
+$('accent').oninput = e=>{ document.documentElement.style.setProperty('--accent', e.target.value); S.accent=e.target.value; saveStateOnly(); };
+
+// ICS
+$('ics').onclick = ()=>{
+  if(!S.last) compute();
+  const {utcMs,endUtc}=S.last||{};
+  const title=$('title').value.trim()||DEFAULTS.title;
+  const dt = (ms)=>{ const d=new Date(ms); const y=d.getUTCFullYear(),m=String(d.getUTCMonth()+1).padStart(2,'0'),da=String(d.getUTCDate()).padStart(2,'0'),h=String(d.getUTCHours()).padStart(2,'0'),mi=String(d.getUTCMinutes()).padStart(2,'0'),s='00'; return `${y}${m}${da}T${h}${mi}${s}Z`; };
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//0din//Time Wizard//EN','BEGIN:VEVENT',
+    `UID:${Date.now()}@0din`,
+    `DTSTAMP:${dt(Date.now())}`,
+    `DTSTART:${dt(utcMs)}`,
+    `DTEND:${dt(endUtc)}`,
+    `SUMMARY:${title}`,
+    'END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='event.ics'; a.click();
+};
+
+// Poster
+$('poster').onclick = ()=>{
+  if(!S.last) compute();
+  const {utcMs}=S.last;
+  const title=$('title').value.trim()||DEFAULTS.title;
+  const base=$('baseTz').value;
+  const baseStr = formatInZone(utcMs, base).replace(',', '');
+  const c=$('cnv'),ctx=c.getContext('2d'); const W=c.width=1200,H=c.height=630;
+  // bg
+  ctx.fillStyle='#0e1222'; ctx.fillRect(0,0,W,H);
+  const grad=ctx.createLinearGradient(0,0,W,0); grad.addColorStop(0,'#1a1f3a'); grad.addColorStop(1,'#0f1327'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+  // title
+  ctx.fillStyle='#D4AF37'; ctx.font='bold 44px Segoe UI,Arial'; ctx.fillText('Schedule',40,70);
+  ctx.fillStyle='#eef1fa'; ctx.font='bold 36px Segoe UI,Arial'; ctx.fillText(title,40,120);
+  // base time
+  ctx.font='22px Segoe UI,Arial'; ctx.fillText('Starts: '+baseStr,40,160);
+  // times box
+  const sel = S.sel||[];
+  const times = sel.map(z=>{
+    const label = (DEFAULTS.zones.find(x=>x.id===z)?.label)||z;
+    return `${label}: ${fmtHHMM(utcMs,z)} ${tzOffsetShort(utcMs,z)}`;
+  });
+  let y=210;
+  ctx.font='20px Segoe UI,Arial';
+  times.forEach((t,i)=>{ ctx.fillStyle=i%2? '#cfd3ff':'#e8ecff'; ctx.fillText(t, 40, y); y+=28; });
+  // footer
+  ctx.fillStyle=S.accent||'#D95E29'; ctx.fillRect(0,H-80,W,80);
+  ctx.fillStyle='#0f0f16'; ctx.font='bold 28px Segoe UI,Arial'; ctx.fillText('twitch.tv/s1r0din',40,H-30);
+  // save
+  const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='0din_event_poster.png'; a.click();
+};
+
+// Countdown overlay
+$('overlay').onclick = ()=>{
+  if(!S.last) compute();
+  const url=new URL(location.href);
+  url.searchParams.set('view','overlay');
+  url.searchParams.set('title', $('title').value.trim()||DEFAULTS.title);
+  url.searchParams.set('base', $('baseTz').value);
+  url.searchParams.set('utc', String(S.last.utcMs));
+  url.searchParams.set('sel', (S.sel||[]).join(','));
+  window.open(url.toString(), '_blank');
+};
+
+// ---------- Overlay logic ----------
+(function overlayInit(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('view')==='overlay'){
+    document.body.classList.add('overlay');
+    const title=q.get('title')||'Event';
+    const base=q.get('base')||DEFAULTS.baseTz;
+    const utc=Number(q.get('utc')||0);
+    const sel=(q.get('sel')||'Atlantic/Madeira,UTC,America/New_York,America/Los_Angeles').split(',');
+    $('oTitle').textContent=title;
+    // build list
+    $('oList').innerHTML = sel.map(z=>{
+      const label = (DEFAULTS.zones.find(x=>x.id===z)?.label)||z;
+      return `${label}: ${fmtHHMM(utc,z)} ${tzOffsetShort(utc,z)}`;
+    }).join('<br/>');
+
+    function tick(){
+      const left = Math.max(0, Math.floor((utc - Date.now())/1000));
+      const h=String(Math.floor(left/3600)).padStart(2,'0');
+      const m=String(Math.floor((left%3600)/60)).padStart(2,'0');
+      const s=String(left%60).padStart(2,'0');
+      $('oBig').textContent = `${h}:${m}:${s}`;
+      $('oSub').textContent = left>0 ? 'Starts in:' : 'Starting now';
+    }
+    tick(); setInterval(tick, 250);
+  }
+})();
+
+// ---------- Boot ----------
+function init(){
+  // set defaults
+  $('title').value = S.title || DEFAULTS.title;
+  $('dur').value = S.dur || 120;
+  document.documentElement.style.setProperty('--accent', S.accent||'#D95E29');
+  // date default today in base tz
+  buildTzUI();
+  const today = new Date();
+  $('date').value = S.date || today.toISOString().slice(0,10);
+  $('time').value = S.time || '21:00';
+  compute(); // prefill preview
+}
+init();
+</script>
+</body>
+</html>
